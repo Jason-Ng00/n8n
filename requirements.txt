@@ -1,5 +1,2 @@
-# Pure Python packages can be added below this line.
-# Note: Do NOT add libraries that require C-extensions like pandas, numpy, or scipy here.
-# They will fail to compile during Render's Docker build. 
-# Instead, add them to the `apk add` line in the Dockerfile (e.g., py3-pandas).
-
+requests
+pandas

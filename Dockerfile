@@ -4,11 +4,13 @@ FROM n8nio/n8n:latest
 # Switch to root to install system packages
 USER root
 
-# Install Python3, pip, and commonly compiled packages via Alpine's package manager
-# Installing pandas/numpy via pip on Alpine fails due to missing C compilers.
-RUN apk add --update --no-cache python3 py3-pip py3-pandas py3-requests
+# Install Python and pip using apt-get (the current n8n image is Debian/Ubuntu-based)
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-venv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install pure Python packages
+# Copy requirements and install Python packages
 COPY requirements.txt /tmp/requirements.txt
 RUN if [ -s /tmp/requirements.txt ] && grep -q '[^[:space:]]' /tmp/requirements.txt; then \
       pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt; \
