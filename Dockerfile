@@ -1,16 +1,28 @@
-# Use the official n8n image
+# Stage 1: Build stage to get static apk tools
+FROM alpine:3.20 AS builder
+WORKDIR /tmp
+# Fetch the apk-tools-static binary which doesn't rely on dynamically linked libraries
+RUN apk update && \
+    apk fetch apk-tools-static && \
+    tar -xzf apk-tools-static-*.apk
+
+# Stage 2: Final n8n image
 FROM n8nio/n8n:latest
 
-# Switch to root to install system packages
 USER root
 
-# Install Python and pip using apt-get (the current n8n image is Debian/Ubuntu-based)
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip python3-venv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# The latest official n8n images are "distroless" and strip out package managers.
+# We bring the static apk binary back into the n8n environment to install Python natively.
+COPY --from=builder /tmp/sbin/apk.static /sbin/apk
 
-# Copy requirements and install Python packages
+# Initialize the apk database and install python, pip, pandas, and requests.
+# We explicitly point to Alpine v3.20 repositories since distroless drops /etc/apk/repositories.
+RUN apk --initdb --no-cache \
+        --repository https://dl-cdn.alpinelinux.org/alpine/v3.20/main \
+        --repository https://dl-cdn.alpinelinux.org/alpine/v3.20/community \
+        add python3 py3-pip py3-pandas py3-requests
+
+# Copy requirements and install pure Python packages
 COPY requirements.txt /tmp/requirements.txt
 RUN if [ -s /tmp/requirements.txt ] && grep -q '[^[:space:]]' /tmp/requirements.txt; then \
       pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt; \
