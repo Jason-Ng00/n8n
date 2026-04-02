@@ -42,7 +42,8 @@ RUN if [ -s /tmp/requirements.txt ] && grep -q '[^[:space:]]' /tmp/requirements.
 RUN JS_FILE=$(find /usr/local/lib/node_modules/n8n -type f -name "task-runner-process-py.js" | head -n 1) && \
     if [ -n "$JS_FILE" ]; then \
       echo "Target file found: $JS_FILE" && \
-      TASK_RUNNER_DIR=$(node -p "require('path').dirname(require.resolve('@n8n/task-runner-python/package.json'))") && \
+      MAIN_PY=$(find /usr/local/lib/node_modules -type f -path "*/@n8n/task-runner-python/src/main.py" | head -n 1) && \
+      TASK_RUNNER_DIR=$(dirname $(dirname "$MAIN_PY")) && \
       echo "Task Runner Absolute Dir: $TASK_RUNNER_DIR" && \
       python3 -c "import re, sys; c=open(sys.argv[1]).read(); c=re.sub(r'getVenvPath\(\)\s*\{[^}]+\}', 'getVenvPath() { return \"/opt/venv/bin/python\"; }', c); c=re.sub(r'const pythonDir =[^;]+;', 'const pythonDir = \"' + sys.argv[2] + '\";', c); open(sys.argv[1], 'w').write(c)" "$JS_FILE" "$TASK_RUNNER_DIR" && \
       echo "Successfully patched n8n Python task runner paths!"; \
