@@ -35,15 +35,17 @@ RUN if [ -s /tmp/requirements.txt ] && grep -q '[^[:space:]]' /tmp/requirements.
       /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt; \
     fi
 
-# ── Patch n8n to force it to use /opt/venv ─────────────────────────────────────
+# ── Patch n8n to force it to use /opt/venv and exact Paths ─────────────────
 # We find the JS file `task-runner-process-py.js` which is responsible for returning
 # the absolute path to the Python environment, and we patch `getVenvPath` method
-# to return our custom path unconditionally.
+# to return our custom path unconditionally. We also resolve the execution CWD dynamically.
 RUN JS_FILE=$(find /usr/local/lib/node_modules/n8n -type f -name "task-runner-process-py.js" | head -n 1) && \
     if [ -n "$JS_FILE" ]; then \
       echo "Target file found: $JS_FILE" && \
-      python3 -c "import re, sys; content=open(sys.argv[1]).read(); content=re.sub(r'getVenvPath\(\)\s*\{[^}]+\}', 'getVenvPath() { return \"/opt/venv/bin/python\"; }', content); open(sys.argv[1], 'w').write(content)" "$JS_FILE" && \
-      echo "Successfully patched n8n Python task runner path!"; \
+      TASK_RUNNER_DIR=$(node -p "require('path').dirname(require.resolve('@n8n/task-runner-python/package.json'))") && \
+      echo "Task Runner Absolute Dir: $TASK_RUNNER_DIR" && \
+      python3 -c "import re, sys; c=open(sys.argv[1]).read(); c=re.sub(r'getVenvPath\(\)\s*\{[^}]+\}', 'getVenvPath() { return \"/opt/venv/bin/python\"; }', c); c=re.sub(r'const pythonDir =[^;]+;', 'const pythonDir = \"' + sys.argv[2] + '\";', c); open(sys.argv[1], 'w').write(c)" "$JS_FILE" "$TASK_RUNNER_DIR" && \
+      echo "Successfully patched n8n Python task runner paths!"; \
     else \
       echo "WARNING: Could not find Python task runner JS file to patch. Build might fail at runtime."; \
     fi
