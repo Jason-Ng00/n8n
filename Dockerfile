@@ -35,6 +35,11 @@ RUN if [ -s /tmp/requirements.txt ] && grep -q '[^[:space:]]' /tmp/requirements.
       /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt; \
     fi
 
+# ── Inject Python Task Runner Source ──────────────────────────────────────────
+# The official n8n distroless image strips away the Python execution module scripts.
+# We manually bundle the n8n python runner `src` directory directly into our image.
+COPY src /opt/task-runner-python/src
+
 # ── Patch n8n to force it to use /opt/venv and exact Paths ─────────────────
 # We find the JS file `task-runner-process-py.js` which is responsible for returning
 # the absolute path to the Python environment, and we patch `getVenvPath` method
@@ -42,10 +47,7 @@ RUN if [ -s /tmp/requirements.txt ] && grep -q '[^[:space:]]' /tmp/requirements.
 RUN JS_FILE=$(find /usr/local/lib/node_modules/n8n -type f -name "task-runner-process-py.js" | head -n 1) && \
     if [ -n "$JS_FILE" ]; then \
       echo "Target file found: $JS_FILE" && \
-      MAIN_PY=$(find /usr/local/lib/node_modules -type f -path "*/@n8n/task-runner-python/src/main.py" | head -n 1) && \
-      TASK_RUNNER_DIR=$(dirname $(dirname "$MAIN_PY")) && \
-      echo "Task Runner Absolute Dir: $TASK_RUNNER_DIR" && \
-      python3 -c "import re, sys; c=open(sys.argv[1]).read(); c=re.sub(r'getVenvPath\(\)\s*\{[^}]+\}', 'getVenvPath() { return \"/opt/venv/bin/python\"; }', c); c=re.sub(r'const pythonDir =[^;]+;', 'const pythonDir = \"' + sys.argv[2] + '\";', c); open(sys.argv[1], 'w').write(c)" "$JS_FILE" "$TASK_RUNNER_DIR" && \
+      python3 -c "import re, sys; c=open(sys.argv[1]).read(); c=re.sub(r'getVenvPath\(\)\s*\{[^}]+\}', 'getVenvPath() { return \"/opt/venv/bin/python\"; }', c); c=re.sub(r'const pythonDir =[^;]+;', 'const pythonDir = \"/opt/task-runner-python\";', c); open(sys.argv[1], 'w').write(c)" "$JS_FILE" && \
       echo "Successfully patched n8n Python task runner paths!"; \
     else \
       echo "WARNING: Could not find Python task runner JS file to patch. Build might fail at runtime."; \
