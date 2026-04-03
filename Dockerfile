@@ -62,5 +62,8 @@ USER node
 # Officially set n8n to accept the internal runner
 ENV N8N_RUNNERS_MODE=internal
 
+# Unlock Python Standard Library and External Packages securely installed in /opt/venv
+ENV N8N_RUNNERS_STDLIB_ALLOW="*" \
+    N8N_RUNNERS_EXTERNAL_ALLOW="*"
 # Expose port
 EXPOSE 5678
